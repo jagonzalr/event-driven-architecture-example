@@ -20,7 +20,6 @@ data "aws_iam_policy_document" "assume_role" {
 resource "aws_iam_role" "lambda" {
   name                = "${var.name}-lambda"
   assume_role_policy  = data.aws_iam_policy_document.assume_role.json
-  tags                = var.tags
 }
 
 // Logs Policy
@@ -46,6 +45,32 @@ resource "aws_iam_role_policy_attachment" "logs" {
   depends_on  = [aws_iam_role.lambda, aws_iam_policy.logs]
   role        = aws_iam_role.lambda.name
   policy_arn  = aws_iam_policy.logs.arn
+}
+
+// S3 Policy
+data "aws_iam_policy_document" "s3" {
+  policy_id = "${var.name}-lambda-s3"
+  version   = "2012-10-17"
+  statement {
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+
+    resources = [
+      var.uploads_bucket_arn,
+      "${var.uploads_bucket_arn}/*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "s3" {
+  name   = "${var.name}-lambda-s3"
+  policy = data.aws_iam_policy_document.s3.json
+}
+
+resource "aws_iam_role_policy_attachment" "s3" {
+  depends_on  = [aws_iam_role.lambda, aws_iam_policy.s3]
+  role        = aws_iam_role.lambda.name
+  policy_arn  = aws_iam_policy.s3.arn
 }
 
 // SQS policy
@@ -80,7 +105,6 @@ resource "aws_iam_role_policy_attachment" "sqs" {
 resource "aws_cloudwatch_log_group" "process_csv" {
   name              = "/aws/lambda/${var.name}"
   retention_in_days = 7
-  tags              = var.tags
 }
 
 /*
@@ -102,8 +126,7 @@ resource "aws_lambda_function" "process_csv" {
 
   environment {
     variables = {
-      BUFFER_QUEUE  = var.buffer_queue_arn
-      REGION        = var.region
+      BUFFER_QUEUE = var.buffer_queue_arn
     }
   }
 }
