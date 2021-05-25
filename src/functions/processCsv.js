@@ -6,6 +6,7 @@ import { parseStream } from '@fast-csv/parse'
 const REGION = process.env.AWS_REGION
 
 const s3 = new AWS.S3({ apiVersion: '2006-03-01', regin: REGION })
+// const sqs = new AWS.SQS({ apiVersion: '2012-11-05', region: REGION })
 
 export const handler = async event => {
   try {
@@ -14,10 +15,9 @@ export const handler = async event => {
         const { bucket, object } = event.Records[i].s3
         const { name } = bucket
         const { key } = object
-        const users = await getCsv(name, key)
+        const users = await parseCsv(name, key)
         if (users) {
-          // TODO: send to SQS
-          console.log(JSON.stringify(users, null, 2))
+          await sendUsersToQueue(users)
         }
       }
     }
@@ -28,8 +28,21 @@ export const handler = async event => {
   }
 }
 
-// https://stackoverflow.com/questions/39861239/read-and-parse-csv-file-in-s3-without-downloading-the-entire-file
-async function getCsv(name, key) {
+function chunkArray (arr, size = 10) {
+  // https://gist.github.com/webinista/11240585
+  return arr.reduce((chunks, obj, index) => {
+    if (index % size === 0) {
+      chunks.push([obj])
+    } else {
+      chunks[chunks.length - 1].push(obj)
+    }
+
+    return chunks
+  }, [])
+}
+
+async function parseCsv(name, key) {
+  // https://stackoverflow.com/questions/39861239/read-and-parse-csv-file-in-s3-without-downloading-the-entire-file
   try {
     const params = { Bucket: name,  Key: key }
     const csvFile = s3.getObject(params).createReadStream()
@@ -51,5 +64,14 @@ async function getCsv(name, key) {
     return users
   } catch(err) {
     throw err
+  }
+}
+
+async function sendUsersToQueue(users) {
+  const chunkUsers = chunkArray(users)
+  for (let i = 0; i < chunkUsers.length; i++) {
+    // TODO: call sqs sendMessageBatch
+    const batchUsers = chunkUsers[i]
+    console.log(JSON.stringify(batchUsers, null, 2))
   }
 }
