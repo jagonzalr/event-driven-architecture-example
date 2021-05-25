@@ -15,13 +15,13 @@ provider "aws" {
 
 locals {
   from_email                = "test@example.com"
-  insert_records_handler    = "src/functions/insert_records.handler"
-  insert_records_zip_path   = "../../.serverless/insert_records.zip"
+  insert_records_handler    = "src/functions/insertRecords.handler"
+  insert_records_zip_path   = "../.serverless/insertRecords.zip"
   name                      = "eda-example"
-  process_csv_handler       = "src/functions/process_csv.handler"
-  process_csv_zip_path      = "../../.serverless/process_csv.zip"
-  send_email_handler        = "src/functions/send_email.handler"
-  send_email_zip_path       = "../../.serverless/send_email.zip"
+  process_csv_handler       = "src/functions/processCsv.handler"
+  process_csv_zip_path      = "../.serverless/processCsv.zip"
+  send_email_handler        = "src/functions/sendEmail.handler"
+  send_email_zip_path       = "../.serverless/sendEmail.zip"
 }
 
 data "aws_caller_identity" "current" {}
