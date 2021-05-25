@@ -1,0 +1,38 @@
+service: event-driven-architecture-example
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
+
+package:
+  individually: true
+  excludeDevDependencies: true
+  include:
+    - node_modules/**
+    - src/**
+
+custom:
+  serverless-offline:
+    port: 4000
+  webpack:
+    includeModules:
+      forceExclude:
+        - aws-sdk
+      
+provider:
+  name: aws
+  region: ${opt:region, 'us-east-1'}
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'dev'}
+  versionFunctions: false
+
+functions:
+  insertRecords:
+    handler: src/functions/insertRecords.handler
+    name: ${self:service}-${self:provider.stage}-insert-records
+  processCsv:
+    handler: src/functions/processCsv.handler
+    name: ${self:service}-${self:provider.stage}-process-csv
+  sendEmail:
+    handler: src/functions/sendEmail.handler
+    name: ${self:service}-${self:provider.stage}-send-email
