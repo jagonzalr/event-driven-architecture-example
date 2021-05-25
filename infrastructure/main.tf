@@ -32,11 +32,13 @@ module "core" {
 }
 
 module "process_csv" {
+  depends_on = [module.core]
+
   source              = "./modules/process_csv"
   account_id          = data.aws_caller_identity.current.account_id
   buffer_queue_arn    = module.core.buffer_queue_arn
   handler             = local.process_csv_handler
-  name                = "${local.name}-process-env"
+  name                = "${local.name}-process-csv"
   region              = var.region
   uploads_bucket_arn  = module.core.uploads_bucket_arn
   uploads_bucket_name = module.core.uploads_bucket_name
@@ -44,7 +46,9 @@ module "process_csv" {
 }
 
 module "insert_records" {
-  source              = "./modules/process_csv"
+  depends_on = [module.core]
+
+  source              = "./modules/insert_records"
   account_id          = data.aws_caller_identity.current.account_id
   buffer_queue_arn    = module.core.buffer_queue_arn
   handler             = local.insert_records_handler
@@ -56,11 +60,13 @@ module "insert_records" {
 }
 
 module "send_email" {
+  depends_on = [module.core]
+
   source                  = "./modules/send_email"
   account_id              = data.aws_caller_identity.current.account_id
   from_email              = local.from_email
   handler                 = local.send_email_handler
-  name                    = "${local.name}-insert-records"
+  name                    = "${local.name}-send-email"
   region                  = var.region
   users_table_stream_arn  = module.core.users_table_stream_arn
   zip_path                = local.send_email_zip_path

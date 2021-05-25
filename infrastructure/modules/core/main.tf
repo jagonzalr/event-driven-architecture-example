@@ -38,7 +38,7 @@ resource "aws_dynamodb_table" "users" {
   billing_mode      = "PAY_PER_REQUEST"
   hash_key          = "type"
   stream_enabled    = true
-  stream_view_type  = NEW_IMAGE
+  stream_view_type  = "NEW_IMAGE"
 
   attribute {
     name = "type"

@@ -20,7 +20,35 @@ data "aws_iam_policy_document" "assume_role" {
 resource "aws_iam_role" "lambda" {
   name                = "${var.name}-lambda"
   assume_role_policy  = data.aws_iam_policy_document.assume_role.json
-  tags                = var.tags
+}
+
+// DynamoDb Policy
+data "aws_iam_policy_document" "dynamodb" {
+  policy_id = "${var.name}-lambda-dynamodb"
+  version   = "2012-10-17"
+  statement {
+    effect  = "Allow"
+    actions = [
+      "dynamodb:GetRecords",
+      "dynamodb:GetShardIterator",
+      "dynamodb:DescribeStream",
+      "dynamodb:ListShards",
+      "dynamodb:ListStreams"
+    ]
+
+    resources = [var.users_table_stream_arn]
+  }
+}
+
+resource "aws_iam_policy" "dynamodb" {
+  name   = "${var.name}-lambda-dynamodb"
+  policy = data.aws_iam_policy_document.dynamodb.json
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb" {
+  depends_on  = [aws_iam_role.lambda, aws_iam_policy.dynamodb]
+  role        = aws_iam_role.lambda.name
+  policy_arn  = aws_iam_policy.dynamodb.arn
 }
 
 // Logs Policy
@@ -83,7 +111,6 @@ resource "aws_iam_role_policy_attachment" "ses" {
 resource "aws_cloudwatch_log_group" "send_email" {
   name              = "/aws/lambda/${var.name}"
   retention_in_days = 7
-  tags              = var.tags
 }
 
 /*
@@ -118,7 +145,7 @@ resource "aws_lambda_event_source_mapping" "users_table_to_insert_records" {
 }
 
 // Permission
-resource "aws_lambda_permission" "buffer_queue_execution" {
+resource "aws_lambda_permission" "users_table_stream_execution" {
   depends_on = [aws_lambda_function.send_email]
 
   statement_id  = "${var.name}-users-table-AllowExecutionFromDynamoDB"

@@ -14,8 +14,11 @@ export const handler = async event => {
         const { bucket, object } = event.Records[i].s3
         const { name } = bucket
         const { key } = object
-        await getCsv(name, key)
-        // TODO: send to SQS
+        const users = await getCsv(name, key)
+        if (users) {
+          // TODO: send to SQS
+          console.log(JSON.stringify(users, null, 2))
+        }
       }
     }
 
@@ -31,19 +34,21 @@ async function getCsv(name, key) {
     const params = { Bucket: name,  Key: key }
     const csvFile = s3.getObject(params).createReadStream()
     const parserFcn = new Promise((resolve, reject) => {
+      let users = []
       parseStream(csvFile, { headers: true })
         .on('data', data => {
-          console.log(data)
+          users.push(data)
         })
         .on('end', function () {
-          resolve('csv parse process finished')
+          resolve(users)
         })
         .on('error', function () {
-          reject('csv parse process failed')
+          reject(null)
         })
     })
 
-    await parserFcn
+    const users = await parserFcn
+    return users
   } catch(err) {
     throw err
   }

@@ -20,7 +20,6 @@ data "aws_iam_policy_document" "assume_role" {
 resource "aws_iam_role" "lambda" {
   name                = "${var.name}-lambda"
   assume_role_policy  = data.aws_iam_policy_document.assume_role.json
-  tags                = var.tags
 }
 
 // DynamoDb Policy
@@ -78,7 +77,11 @@ data "aws_iam_policy_document" "sqs" {
 
   statement {
     effect  = "Allow"
-    actions = ["sqs:ReceiveMessage"]
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes"
+    ]
 
     resources = [var.buffer_queue_arn]
   }
@@ -103,7 +106,6 @@ resource "aws_iam_role_policy_attachment" "sqs" {
 resource "aws_cloudwatch_log_group" "insert_records" {
   name              = "/aws/lambda/${var.name}"
   retention_in_days = 7
-  tags              = var.tags
 }
 
 /*
@@ -121,7 +123,7 @@ resource "aws_lambda_function" "insert_records" {
   source_code_hash  = filebase64sha256(var.zip_path)
   runtime           = "nodejs14.x"
   memory_size       = 1024
-  timeout           = 60
+  timeout           = 30
 
   environment {
     variables = {
