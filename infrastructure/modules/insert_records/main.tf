@@ -24,6 +24,29 @@ resource "aws_iam_role" "lambda" {
 }
 
 // Logs Policy
+data "aws_iam_policy_document" "dynamodb" {
+  policy_id = "${var.name}-lambda-dynamodb"
+  version   = "2012-10-17"
+  statement {
+    effect  = "Allow"
+    actions = ["dynamodb:PutItem"]
+
+    resources = [var.users_table_arn]
+  }
+}
+
+resource "aws_iam_policy" "dynamodb" {
+  name   = "${var.name}-lambda-dynamodb"
+  policy = data.aws_iam_policy_document.dynamodb.json
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb" {
+  depends_on  = [aws_iam_role.lambda, aws_iam_policy.dynamodb]
+  role        = aws_iam_role.lambda.name
+  policy_arn  = aws_iam_policy.dynamodb.arn
+}
+
+// Logs Policy
 data "aws_iam_policy_document" "logs" {
   policy_id = "${var.name}-lambda-logs"
   version   = "2012-10-17"
@@ -55,7 +78,7 @@ data "aws_iam_policy_document" "sqs" {
 
   statement {
     effect  = "Allow"
-    actions = ["sqs:SendMessage"]
+    actions = ["sqs:ReceiveMessage"]
 
     resources = [var.buffer_queue_arn]
   }
@@ -77,7 +100,7 @@ resource "aws_iam_role_policy_attachment" "sqs" {
 */
 
 // Log group
-resource "aws_cloudwatch_log_group" "process_csv" {
+resource "aws_cloudwatch_log_group" "insert_records" {
   name              = "/aws/lambda/${var.name}"
   retention_in_days = 7
   tags              = var.tags
@@ -88,8 +111,8 @@ resource "aws_cloudwatch_log_group" "process_csv" {
 */
 
 // Function
-resource "aws_lambda_function" "process_csv" {
-  depends_on = [aws_cloudwatch_log_group.process_csv]
+resource "aws_lambda_function" "insert_records" {
+  depends_on = [aws_cloudwatch_log_group.insert_records]
 
   filename          = var.zip_path
   function_name     = var.name
@@ -102,32 +125,25 @@ resource "aws_lambda_function" "process_csv" {
 
   environment {
     variables = {
-      BUFFER_QUEUE  = var.buffer_queue_arn
-      REGION        = var.region
+      REGION      = var.region
+      USERS_TABLE = var.users_table_name
     }
   }
 }
 
-// Permissions
-resource "aws_lambda_permission" "process_csv_allow_s3" {
-  statement_id  = "${var.name}-process-csv-AllowExecutionFromS3"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.process_csv.function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = var.uploads_bucket_arn
+// Event Source Mapping
+resource "aws_lambda_event_source_mapping" "buffer_queue_to_insert_records" {
+  event_source_arn = var.buffer_queue_arn
+  function_name    = aws_lambda_function.insert_records.arn
 }
 
-/*
-* S3
-*/
+// Permission
+resource "aws_lambda_permission" "buffer_queue_execution" {
+  depends_on = [aws_lambda_function.insert_records]
 
-// Notification
-resource "aws_s3_bucket_notification" "uploads_bucket_notification" {
-  bucket = var.uploads_bucket_name
-
-  lambda_function {
-    id                  = "uploads-event-process-csv"
-    lambda_function_arn = aws_lambda_function.process_csv.arn
-    events              = ["s3:ObjectCreated:CompleteMultipartUpload", "s3:ObjectCreated:Put"]
-  }
+  statement_id  = "${var.name}-buffer-queue-AllowExecutionFromSQS"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.insert_records.function_name
+  principal     = "sqs.amazonaws.com"
+  source_arn    = var.buffer_queue_arn
 }
