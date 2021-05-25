@@ -13,11 +13,11 @@ provider "aws" {
   region = var.region
 }
 
-/*
-* S3
-*/
+locals {
+  zip_path  = ""
+  handler   = ""
+}
 
-// Bucket
 resource "aws_s3_bucket" "uploads" {
   bucket        = "${var.name}-uploads"
   acl           = "private"
@@ -47,4 +47,23 @@ resource "aws_s3_bucket_public_access_block" "uploads_access_block" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+resource "aws_lambda_function" "process_csv" {
+  depends_on = [aws_cloudwatch_log_group.process_csv]
+
+  filename          = local.zip_path
+  function_name     = "${var.name}-process-csv"
+  role              = aws_iam_role.role.arn
+  handler           = local.handler
+  source_code_hash  = filebase64sha256(local.zip_path)
+  runtime           = "nodejs14.x"
+  memory_size       = 1024
+  timeout           = 60
+
+  environment {
+    variables = {
+      REGION = var.region
+    }
+  }
 }
