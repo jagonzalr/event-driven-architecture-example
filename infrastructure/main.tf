@@ -67,3 +67,21 @@ resource "aws_lambda_function" "process_csv" {
     }
   }
 }
+
+resource "aws_lambda_permission" "process_csv_allow_s3" {
+  statement_id  = "${var.name}-process-csv-AllowExecutionFromS3"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.process_csv.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.uploads.arn
+}
+
+resource "aws_s3_bucket_notification" "uploads_bucket_notification" {
+  bucket = aws_s3_bucket.uploads.bucket
+
+  lambda_function {
+    id                  = "uploads-event-process-csv"
+    lambda_function_arn = aws_lambda_function.process_csv.arn
+    events              = ["s3:ObjectCreated:CompleteMultipartUpload", "s3:ObjectCreated:Put"]
+  }
+}
