@@ -105,8 +105,7 @@ resource "aws_lambda_function" "send_email" {
 
   environment {
     variables = {
-      REGION      = var.region
-      FROM_EMAIL  = var.from_email
+      FROM_EMAIL = var.from_email
     }
   }
 }

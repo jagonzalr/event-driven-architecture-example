@@ -125,7 +125,6 @@ resource "aws_lambda_function" "insert_records" {
 
   environment {
     variables = {
-      REGION      = var.region
       USERS_TABLE = var.users_table_name
     }
   }
