@@ -23,29 +23,6 @@ resource "aws_iam_role" "lambda" {
   tags                = var.tags
 }
 
-// DynamoDb Policy
-data "aws_iam_policy_document" "dynamodb" {
-  policy_id = "${var.name}-lambda-dynamodb"
-  version   = "2012-10-17"
-  statement {
-    effect  = "Allow"
-    actions = ["dynamodb:PutItem"]
-
-    resources = [var.users_table_arn]
-  }
-}
-
-resource "aws_iam_policy" "dynamodb" {
-  name   = "${var.name}-lambda-dynamodb"
-  policy = data.aws_iam_policy_document.dynamodb.json
-}
-
-resource "aws_iam_role_policy_attachment" "dynamodb" {
-  depends_on  = [aws_iam_role.lambda, aws_iam_policy.dynamodb]
-  role        = aws_iam_role.lambda.name
-  policy_arn  = aws_iam_policy.dynamodb.arn
-}
-
 // Logs Policy
 data "aws_iam_policy_document" "logs" {
   policy_id = "${var.name}-lambda-logs"
@@ -71,28 +48,31 @@ resource "aws_iam_role_policy_attachment" "logs" {
   policy_arn  = aws_iam_policy.logs.arn
 }
 
-// SQS policy
-data "aws_iam_policy_document" "sqs" {
-  policy_id = "${var.name}-lambda-sqs"
+// SES policy
+data "aws_iam_policy_document" "ses" {
+  policy_id = "${var.name}-lambda-ses"
   version   = "2012-10-17"
 
   statement {
     effect  = "Allow"
-    actions = ["sqs:ReceiveMessage"]
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail"
+    ]
 
-    resources = [var.buffer_queue_arn]
+    resources = ["*"]
   }
 }
 
-resource "aws_iam_policy" "sqs" {
-  name   = "${var.name}-lambda-sqs"
-  policy = data.aws_iam_policy_document.sqs.json
+resource "aws_iam_policy" "ses" {
+  name   = "${var.name}-lambda-ses"
+  policy = data.aws_iam_policy_document.ses.json
 }
 
-resource "aws_iam_role_policy_attachment" "sqs" {
-  depends_on  = [aws_iam_role.lambda, aws_iam_policy.sqs]
+resource "aws_iam_role_policy_attachment" "ses" {
+  depends_on  = [aws_iam_role.lambda, aws_iam_policy.ses]
   role        = aws_iam_role.lambda.name
-  policy_arn  = aws_iam_policy.sqs.arn
+  policy_arn  = aws_iam_policy.ses.arn
 }
 
 /*
@@ -100,7 +80,7 @@ resource "aws_iam_role_policy_attachment" "sqs" {
 */
 
 // Log group
-resource "aws_cloudwatch_log_group" "insert_records" {
+resource "aws_cloudwatch_log_group" "send_email" {
   name              = "/aws/lambda/${var.name}"
   retention_in_days = 7
   tags              = var.tags
@@ -111,8 +91,8 @@ resource "aws_cloudwatch_log_group" "insert_records" {
 */
 
 // Function
-resource "aws_lambda_function" "insert_records" {
-  depends_on = [aws_cloudwatch_log_group.insert_records]
+resource "aws_lambda_function" "send_email" {
+  depends_on = [aws_cloudwatch_log_group.send_email]
 
   filename          = var.zip_path
   function_name     = var.name
@@ -126,24 +106,25 @@ resource "aws_lambda_function" "insert_records" {
   environment {
     variables = {
       REGION      = var.region
-      USERS_TABLE = var.users_table_name
+      FROM_EMAIL  = var.from_email
     }
   }
 }
 
 // Event Source Mapping
-resource "aws_lambda_event_source_mapping" "buffer_queue_to_insert_records" {
-  event_source_arn = var.buffer_queue_arn
-  function_name    = aws_lambda_function.insert_records.arn
+resource "aws_lambda_event_source_mapping" "users_table_to_insert_records" {
+  event_source_arn  = var.users_table_stream_arn
+  function_name     = aws_lambda_function.send_email.arn
+  starting_position = "LATEST"
 }
 
 // Permission
 resource "aws_lambda_permission" "buffer_queue_execution" {
-  depends_on = [aws_lambda_function.insert_records]
+  depends_on = [aws_lambda_function.send_email]
 
-  statement_id  = "${var.name}-buffer-queue-AllowExecutionFromSQS"
+  statement_id  = "${var.name}-users-table-AllowExecutionFromDynamoDB"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.insert_records.function_name
-  principal     = "sqs.amazonaws.com"
-  source_arn    = var.buffer_queue_arn
+  function_name = aws_lambda_function.send_email.function_name
+  principal     = "dynamodb.amazonaws.com"
+  source_arn    = var.users_table_stream_arn
 }

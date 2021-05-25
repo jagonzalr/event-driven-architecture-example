@@ -17,3 +17,7 @@ output "users_table_arn" {
 output "users_table_name" {
   value = aws_dynamodb_table.users.id
 }
+
+output "users_table_stream_arn" {
+  value = aws_dynamodb_table.users.stream_arn
+}
