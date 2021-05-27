@@ -2,11 +2,13 @@
 
 import AWS from 'aws-sdk'
 import { parseStream } from '@fast-csv/parse'
+import { nanoid } from 'nanoid'
 
+const BUFFER_QUEUE = process.env.BUFFER_QUEUE
 const REGION = process.env.AWS_REGION
 
 const s3 = new AWS.S3({ apiVersion: '2006-03-01', regin: REGION })
-// const sqs = new AWS.SQS({ apiVersion: '2012-11-05', region: REGION })
+const sqs = new AWS.SQS({ apiVersion: '2012-11-05', region: REGION })
 
 export const handler = async event => {
   try {
@@ -70,8 +72,17 @@ async function parseCsv(name, key) {
 async function sendUsersToQueue(users) {
   const chunkUsers = chunkArray(users)
   for (let i = 0; i < chunkUsers.length; i++) {
-    // TODO: call sqs sendMessageBatch
-    const batchUsers = chunkUsers[i]
-    console.log(JSON.stringify(batchUsers, null, 2))
+    try {
+      const batchUsers = chunkUsers[i]
+      const entries = batchUsers.map(user => ({
+        Id: nanoid(),
+        MessageBody: JSON.stringify(user)
+      }))
+
+      const params = { Entries: entries, QueueUrl: BUFFER_QUEUE }
+      await sqs.sendMessageBatch(params).promise()
+    } catch(err) {
+      console.log(err)
+    }
   }
 }
