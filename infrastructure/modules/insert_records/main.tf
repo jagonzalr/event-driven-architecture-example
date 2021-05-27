@@ -28,7 +28,7 @@ data "aws_iam_policy_document" "dynamodb" {
   version   = "2012-10-17"
   statement {
     effect  = "Allow"
-    actions = ["dynamodb:PutItem"]
+    actions = ["dynamodb:BatchWriteItem"]
 
     resources = [var.users_table_arn]
   }

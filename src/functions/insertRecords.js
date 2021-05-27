@@ -13,14 +13,21 @@ const db = new AWS.DynamoDB.DocumentClient({
 export const handler = async event => {
   if (event && event.Records) {
     const records = event.Records
-    for (let i = 0; i < records.length; i++) {
-      try {
-        const body = JSON.parse(records[i].body)
-        await db.put({ TableName: USERS_TABLE, Item: body }).promise()
-      } catch(err) {
-        console.log(err)
+    const putRequests = records.map(({ body }) => {
+      return {
+        PutRequest: {
+          Item: JSON.parse(body)
+        }
+      }
+    })
+    
+    const params = {
+      RequestItems: {
+        [USERS_TABLE]: putRequests
       }
     }
+
+    await db.batchWrite(params).promise()
   }
 
   return { statusCode: 200 }
