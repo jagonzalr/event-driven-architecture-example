@@ -11,23 +11,24 @@ const s3 = new AWS.S3({ apiVersion: '2006-03-01', regin: REGION })
 const sqs = new AWS.SQS({ apiVersion: '2012-11-05', region: REGION })
 
 export const handler = async event => {
-  try {
-    if (event && event.Records) {
-      for (let i = 0; i < event.Records.length; i++) {
-        const { bucket, object } = event.Records[i].s3
+  if (event && event.Records) {
+    const records = event.Records
+    for (let i = 0; i < records.length; i++) {
+      try {
+        const { bucket, object } = records[i].s3
         const { name } = bucket
         const { key } = object
         const users = await parseCsv(name, key)
         if (users) {
           await sendUsersToQueue(users)
         }
+      } catch(err) {
+        console.log(err)
       }
     }
-
-    return { statusCode: 200 }
-  } catch (err) {
-    throw err
   }
+
+  return { statusCode: 200 }
 }
 
 function chunkArray (arr, size = 10) {
