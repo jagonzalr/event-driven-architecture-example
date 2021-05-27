@@ -6,6 +6,10 @@ variable "buffer_queue_arn" {
   type = string
 }
 
+variable "buffer_queue_id" {
+  type = string
+}
+
 variable "handler" {
   type = string
 }

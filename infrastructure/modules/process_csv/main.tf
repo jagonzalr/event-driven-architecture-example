@@ -126,7 +126,7 @@ resource "aws_lambda_function" "process_csv" {
 
   environment {
     variables = {
-      BUFFER_QUEUE = var.buffer_queue_arn
+      BUFFER_QUEUE = var.buffer_queue_id
     }
   }
 }

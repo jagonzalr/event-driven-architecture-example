@@ -2,6 +2,10 @@ output "buffer_queue_arn" {
   value = aws_sqs_queue.buffer_queue.arn
 }
 
+output "buffer_queue_id" {
+  value = aws_sqs_queue.buffer_queue.id
+}
+
 output "uploads_bucket_arn" {
   value = aws_s3_bucket.uploads.arn
 }

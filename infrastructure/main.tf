@@ -36,6 +36,7 @@ module "process_csv" {
 
   source              = "./modules/process_csv"
   account_id          = data.aws_caller_identity.current.account_id
+  buffer_queue_id     = module.core.buffer_queue_id
   buffer_queue_arn    = module.core.buffer_queue_arn
   handler             = local.process_csv_handler
   name                = "${local.name}-process-csv"
