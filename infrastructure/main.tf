@@ -14,7 +14,7 @@ provider "aws" {
 }
 
 locals {
-  from_email                = "jagonzalr@gmail.com"
+  from_email                = "test@example.com"
   insert_records_handler    = "src/functions/insertRecords.handler"
   insert_records_zip_path   = "../.serverless/insertRecords.zip"
   name                      = "eda-example"
